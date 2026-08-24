@@ -5,6 +5,11 @@ build/
 !**/src/main/**/build/
 !**/src/test/**/build/
 
+.env
+### Əməliyyat Sistemi Faylları (Gizli ikon/şəkil yaddaşları) ###
+.DS_Store
+Thumbs.db
+
 ### STS ###
 .apt_generated
 .classpath
