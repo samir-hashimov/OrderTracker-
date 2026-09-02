@@ -2,21 +2,15 @@ package com.ordertracker.auth.mapper;
 
 import com.ordertracker.auth.dao.entity.User;
 import com.ordertracker.auth.dto.request.RegisterRequest;
-
 import com.ordertracker.util.Role;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.stereotype.Component;
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
 
-@Component
-public class AuthMapper {
+@Mapper(componentModel = "spring", imports = Role.class)
+public interface AuthMapper {
 
-    public User toUser(RegisterRequest request, PasswordEncoder passwordEncoder) {
-        return User.builder()
-                .firstname(request.firstname())
-                .lastname(request.lastname())
-                .email(request.email())
-                .password(passwordEncoder.encode(request.password()))
-                .role(Role.USER)
-                .build();
-    }
+    @Mapping(target = "password", source = "encodedPassword")
+    @Mapping(target = "role", expression = "java(Role.USER)")
+    User toUser(RegisterRequest request, String encodedPassword);
+
 }

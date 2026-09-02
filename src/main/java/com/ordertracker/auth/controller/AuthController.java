@@ -34,7 +34,7 @@ public class AuthController {
             @ApiResponse(responseCode = "409", description = "Bu e-poçt artıq mövcuddur", content = @Content)
     })
     @PostMapping("/register")
-    public ResponseEntity<AuthResponse> register(
+    public ResponseEntity<String> register(
             @Valid @RequestBody RegisterRequest request
     ) {
         return ResponseEntity.ok(authService.register(request));
@@ -52,5 +52,19 @@ public class AuthController {
             @Valid @RequestBody LoginRequest request
     ) {
         return ResponseEntity.ok(authService.login(request));
+    }
+
+
+    @Operation(summary = "Token yeniləmə (Refresh)", description = "Mövcud refresh token vasitəsilə yeni access token əldə edir.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Yeni access token uğurla yaradıldı",
+                    content = @Content(mediaType = "application/json", schema = @Schema(implementation = AuthResponse.class))),
+            @ApiResponse(responseCode = "400", description = "Etibarsız və ya vaxtı bitmiş token", content = @Content)
+    })
+    @PostMapping("/refresh")
+    public ResponseEntity<AuthResponse> refreshToken(
+            @Valid @RequestBody com.ordertracker.auth.dto.request.RefreshTokenRequest request
+    ) {
+        return ResponseEntity.ok(authService.refreshToken(request));
     }
 }
