@@ -205,14 +205,23 @@ public class OrderController {
                     content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class))
             )
     })
+
     @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/export")
     public ResponseEntity<byte[]> exportOrders() {
+
         byte[] csvData = orderService.exportAllOrdersToCsv();
 
         HttpHeaders headers = new HttpHeaders();
-        headers.set(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=butun_sifarislər.csv");
-        headers.setContentType(MediaType.parseMediaType("text/csv"));
+
+        headers.set(
+                HttpHeaders.CONTENT_DISPOSITION,
+                "attachment; filename=butun_sifarisler.csv"
+        );
+
+        headers.setContentType(
+                MediaType.parseMediaType("text/csv")
+        );
 
         return ResponseEntity.ok()
                 .headers(headers)

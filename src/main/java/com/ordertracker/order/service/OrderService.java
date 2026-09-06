@@ -10,9 +10,11 @@ import com.ordertracker.order.dao.repository.OrderRepository;
 import com.ordertracker.order.dto.request.OrderCreateRequest;
 import com.ordertracker.order.dto.request.OrderItemRequest;
 import com.ordertracker.order.dto.response.OrderResponse;
+import com.ordertracker.order.event.OrderUpdatedEvent;
 import com.ordertracker.order.mapper.OrderMapper;
 import com.ordertracker.util.OrderStatus;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -29,6 +31,7 @@ public class OrderService {
 
     private final OrderRepository orderRepository;
     private final OrderMapper orderMapper;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public OrderResponse createOrder(OrderCreateRequest request, Long userId) {
@@ -70,12 +73,15 @@ public class OrderService {
 
     @Transactional
     public OrderResponse updateOrderStatus(Long orderId, String newStatus) {
+
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new OrderNotFoundException("Sifariş tapılmadı!"));
 
         OrderStatus requestedStatus;
+
         try {
-            requestedStatus = OrderStatus.valueOf(newStatus.toUpperCase());
+            requestedStatus =
+                    OrderStatus.valueOf(newStatus.toUpperCase());
         } catch (IllegalArgumentException e) {
             throw new InvalidOrderStatusException(
                     "Yanlış status! " +
@@ -83,34 +89,60 @@ public class OrderService {
             );
         }
 
-        validateStatusTransition(order.getStatus(), requestedStatus);
+        OrderStatus oldStatus = order.getStatus();
+
+        validateStatusTransition(oldStatus, requestedStatus);
 
         order.setStatus(requestedStatus);
+
         Order savedOrder = orderRepository.save(order);
+
+        eventPublisher.publishEvent(
+                new OrderUpdatedEvent(
+                        savedOrder.getId(),
+                        savedOrder.getUserId(),
+                        oldStatus,
+                        requestedStatus
+                )
+        );
+
         return orderMapper.toOrderResponse(savedOrder);
     }
 
     @Transactional
     public void cancelOrder(Long orderId, Long userId) {
+
         Order order = orderRepository.findByIdAndUserId(orderId, userId)
                 .orElseThrow(() -> new OrderNotFoundException(
                         "Sifariş tapılmadı və ya bu sifariş sizə aid deyil!"
                 ));
 
         if (order.getStatus() == OrderStatus.CANCELLED) {
-            throw new InvalidStatusTransitionException("Sifariş onsuz da ləğv edilib.");
+            throw new InvalidStatusTransitionException(
+                    "Sifariş onsuz da ləğv edilib."
+            );
         }
 
-        if (order.getStatus() == OrderStatus.PAID
-                || order.getStatus() == OrderStatus.SHIPPED
-                || order.getStatus() == OrderStatus.COMPLETED) {
+        if (order.getStatus() != OrderStatus.PENDING) {
             throw new InvalidStatusTransitionException(
-                    "Ödənilmiş, yola çıxmış və ya tamamlanmış " +
-                            "sifarişləri ləğv etmək mümkün deyil!");
+                    "Yalnız PENDING statusunda olan sifarişi ləğv etmək mümkündür!"
+            );
         }
+
+        OrderStatus oldStatus = order.getStatus();
 
         order.setStatus(OrderStatus.CANCELLED);
-        orderRepository.save(order);
+
+        Order savedOrder = orderRepository.save(order);
+
+        eventPublisher.publishEvent(
+                new OrderUpdatedEvent(
+                        savedOrder.getId(),
+                        savedOrder.getUserId(),
+                        oldStatus,
+                        OrderStatus.CANCELLED
+                )
+        );
     }
 
     @Transactional(readOnly = true)

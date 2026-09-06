@@ -27,7 +27,6 @@ import org.springframework.web.bind.annotation.RestController;
         name = "Authentication API",
         description = "İstifadəçi qeydiyyatı və sistemə giriş əməliyyatları"
 )
-
 public class AuthController {
 
     private final AuthService authService;
