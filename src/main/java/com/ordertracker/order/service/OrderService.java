@@ -1,6 +1,9 @@
 package com.ordertracker.order.service;
 
+import com.ordertracker.exception.DuplicateOrderException;
+import com.ordertracker.exception.InvalidOrderStatusException;
 import com.ordertracker.exception.InvalidStatusTransitionException;
+import com.ordertracker.exception.OrderNotFoundException;
 import com.ordertracker.order.dao.entity.Order;
 import com.ordertracker.order.dao.entity.OrderItem;
 import com.ordertracker.order.dao.repository.OrderRepository;
@@ -37,7 +40,7 @@ public class OrderService {
             if (lastOrder.getStatus() == OrderStatus.PENDING) {
                 boolean isDuplicate = checkDuplicateItems(request.items(), lastOrder.getItems());
                 if (isDuplicate) {
-                    throw new IllegalArgumentException("Siz artıq eyni məhsullarla sifariş yaratmısınız! Zəhmət olmasa fərqli məhsul seçin.");
+                    throw new DuplicateOrderException("Siz artıq eyni məhsullarla sifariş yaratmısınız! Zəhmət olmasa fərqli məhsul seçin.");
                 }
             }
         }
@@ -60,20 +63,24 @@ public class OrderService {
 
     @Transactional(readOnly = true)
     public Page<OrderResponse> getUserOrders(Long userId, Pageable pageable) {
-        return orderRepository.findByUserId(userId, pageable)
+        return orderRepository
+                .findByUserId(userId, pageable)
                 .map(orderMapper::toOrderResponse);
     }
 
     @Transactional
     public OrderResponse updateOrderStatus(Long orderId, String newStatus) {
         Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new IllegalArgumentException("Sifariş tapılmadı!"));
+                .orElseThrow(() -> new OrderNotFoundException("Sifariş tapılmadı!"));
 
         OrderStatus requestedStatus;
         try {
             requestedStatus = OrderStatus.valueOf(newStatus.toUpperCase());
         } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException("Yanlış status! İcazə verilənlər: PENDING, PAID, SHIPPED, COMPLETED, CANCELLED");
+            throw new InvalidOrderStatusException(
+                    "Yanlış status! " +
+                            "İcazə verilənlər: PENDING, PAID, SHIPPED, COMPLETED, CANCELLED"
+            );
         }
 
         validateStatusTransition(order.getStatus(), requestedStatus);
@@ -86,14 +93,20 @@ public class OrderService {
     @Transactional
     public void cancelOrder(Long orderId, Long userId) {
         Order order = orderRepository.findByIdAndUserId(orderId, userId)
-                .orElseThrow(() -> new IllegalArgumentException("Sifariş tapılmadı və ya bu sifariş sizə aid deyil!"));
-
-        if (order.getStatus() == OrderStatus.PAID || order.getStatus() == OrderStatus.SHIPPED || order.getStatus() == OrderStatus.COMPLETED) {
-            throw new InvalidStatusTransitionException("Ödənilmiş, yola çıxmış və ya tamamlanmış sifarişləri ləğv etmək mümkün deyil!");
-        }
+                .orElseThrow(() -> new OrderNotFoundException(
+                        "Sifariş tapılmadı və ya bu sifariş sizə aid deyil!"
+                ));
 
         if (order.getStatus() == OrderStatus.CANCELLED) {
             throw new InvalidStatusTransitionException("Sifariş onsuz da ləğv edilib.");
+        }
+
+        if (order.getStatus() == OrderStatus.PAID
+                || order.getStatus() == OrderStatus.SHIPPED
+                || order.getStatus() == OrderStatus.COMPLETED) {
+            throw new InvalidStatusTransitionException(
+                    "Ödənilmiş, yola çıxmış və ya tamamlanmış " +
+                            "sifarişləri ləğv etmək mümkün deyil!");
         }
 
         order.setStatus(OrderStatus.CANCELLED);
@@ -140,7 +153,11 @@ public class OrderService {
 
         if (!isValid) {
             throw new InvalidStatusTransitionException(
-                    String.format("Sifariş statusunu %s statusundan %s statusuna dəyişmək mümkün deyil!", current, next)
+                    String.format(
+                            "Sifariş statusunu %s statusundan %s statusuna dəyişmək mümkün deyil!",
+                            current,
+                            next
+                    )
             );
         }
     }

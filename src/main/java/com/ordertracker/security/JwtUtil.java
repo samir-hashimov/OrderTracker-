@@ -22,7 +22,7 @@ public class JwtUtil {
     private String secretKey;
 
     @Value("${jwt.access.token}")
-    private long ACCESS_TOKEN_EXPIRATION;
+    private long accessTokenExpiration;
 
     @Value("${jwt.refresh.token}")
     private long refreshJwtExpiration;
@@ -37,14 +37,18 @@ public class JwtUtil {
     }
 
     public String generateAccessToken(UserDetails userDetails) {
-        return generateToken(new HashMap<>(), userDetails, ACCESS_TOKEN_EXPIRATION);
+        return generateToken(new HashMap<>(), userDetails, accessTokenExpiration);
     }
 
     public String generateRefreshToken(UserDetails userDetails) {
         return generateToken(new HashMap<>(), userDetails, refreshJwtExpiration);
     }
 
-    public String generateToken(Map<String, Object> extraClaims, UserDetails userDetails, long expirationTime) {
+    public String generateToken(
+            Map<String, Object> extraClaims,
+            UserDetails userDetails,
+            long expirationTime) {
+
         return Jwts.builder()
                 .setClaims(extraClaims)
                 .setSubject(userDetails.getUsername())

@@ -3,16 +3,20 @@ package com.ordertracker.auth.service;
 import com.ordertracker.auth.dao.entity.User;
 import com.ordertracker.auth.dao.repository.UserRepository;
 import com.ordertracker.auth.dto.request.LoginRequest;
+import com.ordertracker.auth.dto.request.RefreshTokenRequest;
 import com.ordertracker.auth.dto.request.RegisterRequest;
 import com.ordertracker.auth.dto.response.AuthResponse;
 import com.ordertracker.auth.mapper.AuthMapper;
+import com.ordertracker.exception.InvalidRefreshTokenException;
 import com.ordertracker.exception.UserAlreadyExistsException;
+import com.ordertracker.exception.UserNotFoundException;
+import com.ordertracker.security.CustomUserDetails;
 import com.ordertracker.security.JwtUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -44,29 +48,25 @@ public class AuthService {
                 new UsernamePasswordAuthenticationToken(request.email(), request.password())
         );
 
-        User user = (User) authentication.getPrincipal();
-
-        String accessToken = jwtUtil.generateAccessToken(user);
-        String refreshToken = jwtUtil.generateRefreshToken(user);
+        UserDetails userDetails = (UserDetails) authentication.getPrincipal();
+        String accessToken = jwtUtil.generateAccessToken(userDetails);
+        String refreshToken = jwtUtil.generateRefreshToken(userDetails);
 
         return new AuthResponse(accessToken, refreshToken);
     }
 
-    public AuthResponse refreshToken(com.ordertracker.auth.dto.request.RefreshTokenRequest request) {
+    public AuthResponse refreshToken(RefreshTokenRequest request) {
         String refreshToken = request.refreshToken();
         String userEmail = jwtUtil.extractUsername(refreshToken);
-
-        if (userEmail != null) {
-            User user = repository.findByEmail(userEmail)
-                    .orElseThrow(() -> new UsernameNotFoundException("İstifadəçi tapılmadı"));
-
-            if (jwtUtil.isTokenValid(refreshToken, user)) {
-                String newAccessToken = jwtUtil.generateAccessToken(user);
-
-                return new AuthResponse(newAccessToken, refreshToken);
-            }
+        if (userEmail == null) {
+            throw new InvalidRefreshTokenException("Refresh token etibarsızdır və ya vaxtı bitib!");
         }
-
-        throw new IllegalArgumentException("Refresh token etibarsızdır və ya vaxtı bitib!");
+        User user = repository.findByEmail(userEmail).orElseThrow(() -> new UserNotFoundException("İstifadəçi tapılmadı"));
+        UserDetails userDetails = new CustomUserDetails(user);
+        if (!jwtUtil.isTokenValid(refreshToken, userDetails)) {
+            throw new InvalidRefreshTokenException("Refresh token etibarsızdır və ya vaxtı bitib!");
+        }
+        String newAccessToken = jwtUtil.generateAccessToken(userDetails);
+        return new AuthResponse(newAccessToken, refreshToken);
     }
 }

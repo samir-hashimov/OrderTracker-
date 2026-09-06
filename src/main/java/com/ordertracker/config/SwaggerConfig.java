@@ -12,21 +12,33 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class SwaggerConfig {
 
+    private static final String SECURITY_SCHEME_NAME = "Bearer Authentication";
+
     @Bean
     public OpenAPI openAPI() {
         return new OpenAPI()
-                .addSecurityItem(new SecurityRequirement().addList("Bearer Authentication"))
-                .components(new Components().addSecuritySchemes("Bearer Authentication", createAPIKeyScheme()))
                 .info(new Info()
                         .title("OrderTracker API")
                         .description("Sifariş və İstifadəçi İdarəetmə Sistemi API Sənədləri")
-                        .version("1.0"));
+                        .version("1.0")
+                )
+                .addSecurityItem(
+                        new SecurityRequirement()
+                                .addList(SECURITY_SCHEME_NAME)
+                )
+                .components(
+                        new Components()
+                                .addSecuritySchemes(
+                                        SECURITY_SCHEME_NAME,
+                                        createAPIKeyScheme()
+                                )
+                );
     }
 
     private SecurityScheme createAPIKeyScheme() {
         return new SecurityScheme()
                 .type(SecurityScheme.Type.HTTP)
-                .bearerFormat("JWT")
-                .scheme("bearer");
+                .scheme("bearer")
+                .bearerFormat("JWT");
     }
 }

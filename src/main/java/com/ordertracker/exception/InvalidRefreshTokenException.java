@@ -2,9 +2,9 @@ package com.ordertracker.exception;
 
 import org.springframework.http.HttpStatus;
 
-public class InvalidStatusTransitionException extends BusinessException {
+public class InvalidRefreshTokenException extends BusinessException {
 
-    public InvalidStatusTransitionException(String message) {
+    public InvalidRefreshTokenException(String message) {
         super(HttpStatus.BAD_REQUEST, message);
     }
 }
